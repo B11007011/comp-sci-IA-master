@@ -48,7 +48,7 @@ Before you begin, ensure you have the following installed:
 The sample data includes:
 
 1. Users:
-   - Admin user: `admin@school.edu` / `admin123`
+   - Default Admin: `admin@school.edu` / `admin123`
    - Teacher: `teacher1@school.edu` / `teacher123`
    - Teacher: `teacher2@school.edu` / `teacher123`
 
@@ -60,6 +60,8 @@ The sample data includes:
 3. Students:
    - 10 sample students distributed across classes
    - Each student has initial points and sample appraisals
+
+### Sample Data Setup Instructions
 
 To set up the sample data:
 
@@ -90,6 +92,36 @@ If you need to reset the database and reload sample data:
 ```bash
 npm run init-db && npm run load-sample-data
 ```
+
+### Admin Account Management
+
+There are several ways to manage admin accounts:
+
+1. **Default Admin Account**
+   - Email: `admin@school.edu`
+   - Password: `admin123`
+   - This account is created automatically during database initialization
+
+2. **Add New Admin Account**
+   ```bash
+   cd backend
+   npm run add-admin <email> <password> <firstName> <lastName>
+   
+   # Example:
+   npm run add-admin newadmin@school.edu admin123 John Doe
+   ```
+
+3. **Reset Default Admin**
+   ```bash
+   cd backend
+   npm run reset-admin
+   ```
+
+4. **Verify Admin Account**
+   ```bash
+   cd backend
+   npm run verify-admin
+   ```
 
 ### Backend Setup
 

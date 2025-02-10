@@ -9,7 +9,8 @@
     "init-db": "node init-db.js",
     "verify-admin": "node scripts/verify-admin.js",
     "reset-admin": "node scripts/reset-admin.js",
-    "load-sample-data": "node scripts/load-sample-data.js"
+    "load-sample-data": "node scripts/load-sample-data.js",
+    "add-admin": "node scripts/add-admin.js"
   },
   "keywords": [],
   "author": "",
