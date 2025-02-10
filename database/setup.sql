@@ -1,3 +1,6 @@
+-- First, make sure we're using the right database
+USE school_points;
+
 -- Drop tables if they exist (in correct order due to foreign keys)
 DROP TABLE IF EXISTS points_history;
 DROP TABLE IF EXISTS appraisals;

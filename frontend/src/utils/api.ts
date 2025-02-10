@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { User, Student, Class, AppraisalForm, SummaryData } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -30,6 +30,25 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Auth endpoints
+export const login = (email: string, password: string) =>
+  api.post<{ user: User; token: string }>('/auth/login', { email, password });
+
+export const register = (email: string, password: string, role: string) =>
+  api.post<{ user: User; token: string }>('/auth/register', { email, password, role });
+
+export const getProfile = () =>
+  api.get<User>('/auth/profile');
+
+// Add token to requests if available
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // Class endpoints
 export const getClasses = () => 
@@ -64,7 +83,7 @@ export const updateStudent = (id: string, data: { name: string; email: string; c
   api.put(`/students/${id}`, data);
 
 // Points Management endpoints
-export const updatePoints = (studentId: string, data: { points: number; reason: string; comment: string }) =>
+export const updatePoints = (studentId: string, data: { points: number; category: string; reason: string; comment: string }) =>
   api.post(`/students/${studentId}/points`, data);
 
 // Summary endpoints

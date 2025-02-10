@@ -17,7 +17,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginForm {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -33,7 +33,7 @@ const Login = () => {
 
   const { control, handleSubmit, formState: { isValid } } = useForm<LoginForm>({
     defaultValues: {
-      username: '',
+      email: '',
       password: ''
     },
     mode: 'onChange' // Enable real-time validation
@@ -49,7 +49,7 @@ const Login = () => {
     setError(''); // Clear any previous errors
     
     try {
-      await login(data.username, data.password);
+      await login(data.email, data.password);
       toast.success('Login successful');
       navigate(from, { replace: true });
     } catch (err: any) {
@@ -107,21 +107,22 @@ const Login = () => {
           }}
         >
           <Controller
-            name="username"
+            name="email"
             control={control}
             rules={{ 
-              required: 'Username is required',
-              minLength: {
-                value: 3,
-                message: 'Username must be at least 3 characters'
+              required: 'Email is required',
+              pattern: {
+                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                message: 'Invalid email address'
               }
             }}
             render={({ field, fieldState: { error } }) => (
               <TextField
                 {...field}
-                label="Username"
+                label="Email"
+                type="email"
                 fullWidth
-                autoComplete="username"
+                autoComplete="email"
                 autoFocus
                 error={!!error}
                 helperText={error?.message}

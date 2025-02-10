@@ -58,7 +58,7 @@ const Header: React.FC<HeaderProps> = ({ title, showBack = false, onBackClick })
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {!isMobile && (
               <Typography variant="body2" color="inherit">
-                {user.name}
+                {user.firstName ? `${user.firstName} ${user.lastName || ''}` : user.email}
               </Typography>
             )}
             <Button

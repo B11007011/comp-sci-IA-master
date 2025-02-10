@@ -71,6 +71,20 @@ const Dashboard = () => {
     navigate(`/appraisal/${id}`, { state: { defaultAction: action === 'add' ? 'add' : 'subtract' } });
   };
 
+  const getStudentInitials = (student: Student) => {
+    if (student.first_name && student.last_name) {
+      return `${student.first_name[0]}${student.last_name[0]}`;
+    }
+    return student.first_name?.[0] || student.last_name?.[0] || '?';
+  };
+
+  const getStudentFullName = (student: Student) => {
+    if (student.first_name && student.last_name) {
+      return `${student.first_name} ${student.last_name}`;
+    }
+    return student.first_name || student.last_name || 'Unknown Student';
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -127,7 +141,7 @@ const Dashboard = () => {
 
   return (
     <>
-      <Header title={`${student.name}'s Profile`} showBack />
+      <Header title={`${getStudentFullName(student)}'s Profile`} showBack />
       <Container maxWidth="md">
         <Fade in timeout={500}>
           <Card 
@@ -165,7 +179,7 @@ const Dashboard = () => {
                     }
                   }}
                 >
-                  {student.name.charAt(0)}
+                  {getStudentInitials(student)}
                 </Avatar>
 
                 {/* Student Details */}
@@ -174,21 +188,21 @@ const Dashboard = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <SchoolIcon color="primary" />
                       <Typography variant="body1">
-                        Class: {student.class}
+                        Class: {student.class_name || 'Not Assigned'}
                       </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <CakeIcon color="primary" />
                       <Typography variant="body1">
-                        DOB: {student.dob || 'Not available'}
+                        DOB: {student.date_of_birth || 'Not available'}
                       </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <PointsIcon color="primary" />
                       <Typography variant="body1">
-                        Points: {student.points}
+                        Points: {student.points || 0}
                       </Typography>
                     </Box>
                   </Stack>

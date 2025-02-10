@@ -1,19 +1,38 @@
 export interface User {
   id: number;
-  name: string;
+  email: string;
+  role: 'admin' | 'teacher' | 'staff';
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface Student {
   id: number;
-  name: string;
-  class: string;
-  dob: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  class_id?: number;
+  class_name?: string;
+  student_id?: string;
+  date_of_birth?: string;
+  gender: 'M' | 'F' | 'Other';
   points: number;
+  attendance_rate: number;
+  is_active: boolean;
+  notes?: string;
 }
 
 export interface Class {
   id: number;
   name: string;
+  description?: string;
+  teacher_id?: number;
+  max_students: number;
+  is_active: boolean;
+  academic_year?: string;
+  semester: 'Fall' | 'Spring' | 'Summer';
+  student_count?: number;
+  average_points?: number;
 }
 
 export interface ClassDetails extends Class {
@@ -27,10 +46,11 @@ export interface ClassDetails extends Class {
 }
 
 export interface AppraisalForm {
+  student_id: number;
   points: number;
-  action: 'add' | 'subtract';
+  category: 'Academic' | 'Behavior' | 'Participation' | 'Leadership' | 'Other';
   reason: string;
-  comment: string;
+  comment?: string;
 }
 
 export interface HistoryItem {
@@ -47,9 +67,22 @@ export interface DistributionItem {
 }
 
 export interface SummaryData {
-  student: Student;
-  history: HistoryItem[];
-  distribution: DistributionItem[];
+  student: {
+    id: number;
+    name: string;
+    points: number;
+    class_name?: string;
+  };
+  history: Array<{
+    points_change: number;
+    reason: string;
+    comment?: string;
+    created_at: string;
+  }>;
+  distribution: Array<{
+    reason: string;
+    total: number;
+  }>;
 }
 
 export const POINT_REASONS = [

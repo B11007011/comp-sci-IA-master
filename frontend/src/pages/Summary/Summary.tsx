@@ -175,7 +175,7 @@ const Summary = () => {
         <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
           <Box sx={{ mb: 4 }}>
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-              Class: {summaryData.student.class}
+              Class: {summaryData.student.class_name || 'Not Assigned'}
             </Typography>
             <Typography variant="h6" gutterBottom>
               Total Points: {summaryData.student.points}
@@ -206,7 +206,7 @@ const Summary = () => {
             </Typography>
             <List>
               {summaryData.history.map((item, index) => (
-                <React.Fragment key={item.id}>
+                <React.Fragment key={`history-${index}`}>
                   <ListItem>
                     <ListItemText
                       primary={

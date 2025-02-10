@@ -1,6 +1,9 @@
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2");
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 const app = express();
 
@@ -19,10 +22,10 @@ app.use(cors());  // Allow all origins and methods
 
 // Create the connection pool
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '01470258Qui**',
-    database: 'crud',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
+    database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
     maxIdle: 10,
@@ -32,6 +35,101 @@ const pool = mysql.createPool({
 
 // Get a promise-based connection
 const promisePool = pool.promise();
+
+// Authentication Middleware
+const authenticateToken = async (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    try {
+        const user = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = user;
+        next();
+    } catch (err) {
+        return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+};
+
+// Auth endpoints
+app.post('/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Get user from database
+        const [users] = await promisePool.query(
+            'SELECT * FROM users WHERE email = ?',
+            [email]
+        );
+
+        const user = users[0];
+
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Check password
+        const validPassword = await bcrypt.compare(password, user.password_hash);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Create token
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRATION }
+        );
+
+        // Update last login
+        await promisePool.query(
+            'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
+            [user.id]
+        );
+
+        res.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                firstName: user.first_name,
+                lastName: user.last_name
+            },
+            token
+        });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ error: 'Error during login' });
+    }
+});
+
+app.get('/auth/profile', authenticateToken, async (req, res) => {
+    try {
+        const [users] = await promisePool.query(
+            'SELECT id, email, role, first_name, last_name FROM users WHERE id = ?',
+            [req.user.id]
+        );
+
+        const user = users[0];
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            firstName: user.first_name,
+            lastName: user.last_name
+        });
+    } catch (err) {
+        console.error('Profile fetch error:', err);
+        res.status(500).json({ error: 'Error fetching profile' });
+    }
+});
 
 // Class Management Endpoints
 app.get("/classes", async (req, res) => {
@@ -109,6 +207,9 @@ app.get("/classes/:id/details", async (req, res) => {
             `SELECT 
                 c.id,
                 c.name,
+                c.description,
+                c.academic_year,
+                c.semester,
                 COUNT(DISTINCT s.id) as student_count,
                 COALESCE(AVG(s.points), 0) as average_points
             FROM classes c
@@ -129,8 +230,8 @@ app.get("/classes/:id/details", async (req, res) => {
         const [students] = await promisePool.query(
             `SELECT 
                 id,
-                Name as name,
-                Email as email,
+                CONCAT(first_name, ' ', last_name) as name,
+                email,
                 COALESCE(points, 0) as points 
             FROM student 
             WHERE class_id = ? 
@@ -140,10 +241,7 @@ app.get("/classes/:id/details", async (req, res) => {
         );
 
         const responseData = {
-            id: classDetails[0].id,
-            name: classDetails[0].name,
-            student_count: parseInt(classDetails[0].student_count),
-            average_points: parseFloat(classDetails[0].average_points) || 0,
+            ...classDetails[0],
             recent_students: students || []
         };
 
@@ -160,7 +258,19 @@ app.get("/classes/:id/details", async (req, res) => {
 // Student Management Endpoints
 app.get("/students", async (req, res) => {
     try {
-        const [rows] = await promisePool.query("SELECT * FROM student");
+        const [rows] = await promisePool.query(`
+            SELECT 
+                id,
+                first_name,
+                last_name,
+                email,
+                class_id,
+                student_id,
+                points,
+                attendance_rate,
+                is_active
+            FROM student
+        `);
         res.json(rows);
     } catch (err) {
         console.error('Query error:', err);
@@ -170,8 +280,22 @@ app.get("/students", async (req, res) => {
 
 app.post('/students', async (req, res) => {
     try {
-        const sql = "INSERT INTO student (`Name`, `Email`, `class_id`) VALUES (?, ?, ?)";
-        const [result] = await promisePool.query(sql, [req.body.name, req.body.email, req.body.class_id]);
+        const sql = `
+            INSERT INTO student (
+                first_name, 
+                last_name, 
+                email, 
+                class_id,
+                gender
+            ) VALUES (?, ?, ?, ?, ?)
+        `;
+        const [result] = await promisePool.query(sql, [
+            req.body.first_name,
+            req.body.last_name,
+            req.body.email,
+            req.body.class_id,
+            req.body.gender || 'Other'
+        ]);
         res.json({ message: "Created successfully", data: result });
     } catch (err) {
         console.error('Create error:', err);
@@ -181,8 +305,21 @@ app.post('/students', async (req, res) => {
 
 app.put('/students/:id', async (req, res) => {
     try {
-        const sql = "UPDATE student SET `Name` = ?, `Email` = ?, `class_id` = ? WHERE id = ?";
-        const [result] = await promisePool.query(sql, [req.body.name, req.body.email, req.body.class_id, req.params.id]);
+        const sql = `
+            UPDATE student 
+            SET first_name = ?, 
+                last_name = ?, 
+                email = ?, 
+                class_id = ?
+            WHERE id = ?
+        `;
+        const [result] = await promisePool.query(sql, [
+            req.body.first_name,
+            req.body.last_name,
+            req.body.email,
+            req.body.class_id,
+            req.params.id
+        ]);
         res.json({ message: "Updated successfully", data: result });
     } catch (err) {
         console.error('Update error:', err);
@@ -196,10 +333,13 @@ app.get("/students/:id", async (req, res) => {
         const sql = `
             SELECT 
                 s.id,
-                s.Name as name,
-                c.name as class,
-                COALESCE(s.points, 0) as points,
-                s.Email as email
+                s.first_name,
+                s.last_name,
+                s.email,
+                s.class_id,
+                c.name as class_name,
+                s.points,
+                s.attendance_rate
             FROM student s
             LEFT JOIN classes c ON s.class_id = c.id
             WHERE s.id = ?
@@ -221,36 +361,111 @@ app.get("/students/:id", async (req, res) => {
 });
 
 // Points Management Endpoints
-app.post('/students/:id/points', async (req, res) => {
+app.post('/students/:id/points', authenticateToken, async (req, res) => {
     try {
-        console.log('Adding/removing points for student:', req.params.id, req.body);
-        const { points, reason, comment } = req.body;
+        console.log('Adding/removing points for student:', req.params.id);
+        console.log('Request body:', req.body);
+        console.log('Authenticated user:', req.user);
+        
+        const { points, reason, comment, category } = req.body;
+        const teacher_id = req.user.id;  // Get teacher_id from authenticated user
+        const student_id = req.params.id;
+        
+        console.log('Parsed data:', { points, reason, comment, category, teacher_id });
+
+        // Get current points
+        const [currentPoints] = await promisePool.query(
+            'SELECT points FROM student WHERE id = ?',
+            [student_id]
+        );
+
+        if (!currentPoints || currentPoints.length === 0) {
+            return res.status(404).json({ error: "Student not found" });
+        }
+
+        const previous_points = currentPoints[0].points;
+        const new_points = previous_points + points;
         
         // First update the student's points
         const updateSql = `
             UPDATE student 
-            SET points = points + ? 
+            SET points = ? 
             WHERE id = ?
         `;
-        await promisePool.query(updateSql, [points, req.params.id]);
+        console.log('Executing update SQL:', updateSql, [new_points, student_id]);
+        await promisePool.query(updateSql, [new_points, student_id]);
         
         // Then record the points history
         const historySql = `
-            INSERT INTO points_history (student_id, points_change, reason, comment) 
-            VALUES (?, ?, ?, ?)
+            INSERT INTO points_history (
+                student_id, 
+                teacher_id,
+                points_change, 
+                previous_points,
+                new_points,
+                category,
+                reason, 
+                comment
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await promisePool.query(historySql, [req.params.id, points, reason, comment]);
+        console.log('Executing history SQL:', historySql, [
+            student_id, teacher_id, points, previous_points, 
+            new_points, category, reason, comment
+        ]);
+        await promisePool.query(historySql, [
+            student_id,
+            teacher_id,
+            points,
+            previous_points,
+            new_points,
+            category,
+            reason,
+            comment
+        ]);
+
+        // Also record in appraisals table
+        const appraisalSql = `
+            INSERT INTO appraisals (
+                student_id,
+                teacher_id,
+                points,
+                category,
+                comment
+            ) VALUES (?, ?, ?, ?, ?)
+        `;
+        console.log('Executing appraisal SQL:', appraisalSql, [student_id, teacher_id, points, category, comment]);
+        await promisePool.query(appraisalSql, [
+            student_id,
+            teacher_id,
+            points,
+            category,
+            comment
+        ]);
         
         console.log('Points updated successfully');
-        res.json({ message: "Points updated successfully" });
+        res.json({ 
+            message: "Points updated successfully",
+            previous_points,
+            new_points
+        });
     } catch (err) {
         console.error('Error updating points:', err);
-        res.status(500).json({ error: "Error updating points: " + err.message });
+        console.error('Error details:', {
+            code: err.code,
+            errno: err.errno,
+            sqlMessage: err.sqlMessage,
+            sqlState: err.sqlState,
+            sql: err.sql
+        });
+        res.status(500).json({ 
+            error: "Error updating points",
+            details: err.sqlMessage || err.message
+        });
     }
 });
 
 // Get student summary
-app.get('/students/:id/summary', async (req, res) => {
+app.get('/students/:id/summary', authenticateToken, async (req, res) => {
     try {
         console.log('Fetching summary for student:', req.params.id);
         
@@ -258,7 +473,7 @@ app.get('/students/:id/summary', async (req, res) => {
         const [student] = await promisePool.query(`
             SELECT 
                 s.id,
-                s.Name as name,
+                CONCAT(s.first_name, ' ', s.last_name) as name,
                 s.points,
                 c.name as class_name
             FROM student s
@@ -275,6 +490,7 @@ app.get('/students/:id/summary', async (req, res) => {
         const [history] = await promisePool.query(`
             SELECT 
                 points_change,
+                category,
                 reason,
                 comment,
                 created_at
@@ -284,14 +500,14 @@ app.get('/students/:id/summary', async (req, res) => {
             LIMIT 10
         `, [req.params.id]);
         
-        // Get points distribution by reason
+        // Get points distribution by category
         const [distribution] = await promisePool.query(`
             SELECT 
-                reason,
+                category as reason,
                 SUM(points_change) as total
             FROM points_history
             WHERE student_id = ?
-            GROUP BY reason
+            GROUP BY category
             ORDER BY total DESC
         `, [req.params.id]);
         
@@ -308,7 +524,7 @@ app.get('/students/:id/summary', async (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 8081;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

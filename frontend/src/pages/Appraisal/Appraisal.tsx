@@ -27,8 +27,9 @@ const Appraisal = () => {
   const [error, setError] = useState('');
   const { control, handleSubmit, formState: { isValid } } = useForm<AppraisalForm>({
     defaultValues: {
-      action: defaultAction,
+      student_id: Number(id),
       points: 1,
+      category: 'Other',
       reason: '',
       comment: ''
     },
@@ -45,22 +46,23 @@ const Appraisal = () => {
     setError('');
     
     try {
-      console.log('Submitting points update:', {
-        ...data,
-        points: data.action === 'subtract' ? -data.points : data.points
-      });
-      
-      await updatePoints(id, {
-        points: data.action === 'subtract' ? -data.points : data.points,
+      const pointsData = {
+        points: defaultAction === 'subtract' ? -data.points : data.points,
+        category: data.category,
         reason: data.reason,
-        comment: data.comment
-      });
+        comment: data.comment || ''
+      };
+      
+      console.log('Submitting points update:', pointsData);
+      
+      await updatePoints(id, pointsData);
       
       toast.success('Points updated successfully');
       navigate(`/dashboard/${id}`);
     } catch (err: any) {
       console.error('Error updating points:', err);
-      const errorMsg = err.response?.data?.error || 'Failed to update points';
+      console.error('Error response:', err.response?.data);
+      const errorMsg = err.response?.data?.details || err.response?.data?.error || 'Failed to update points';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -93,9 +95,9 @@ const Appraisal = () => {
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)}>
             <Controller
-              name="action"
+              name="category"
               control={control}
-              rules={{ required: 'Please select an action' }}
+              rules={{ required: 'Please select a category' }}
               render={({ field, fieldState: { error } }) => (
                 <Select
                   {...field}
@@ -103,8 +105,11 @@ const Appraisal = () => {
                   sx={{ mb: 3 }}
                   error={!!error}
                 >
-                  <MenuItem value="add">Add Points</MenuItem>
-                  <MenuItem value="subtract">Remove Points</MenuItem>
+                  <MenuItem value="Academic">Academic</MenuItem>
+                  <MenuItem value="Behavior">Behavior</MenuItem>
+                  <MenuItem value="Participation">Participation</MenuItem>
+                  <MenuItem value="Leadership">Leadership</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
                 </Select>
               )}
             />

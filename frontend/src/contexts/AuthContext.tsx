@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import * as api from '../utils/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -21,19 +22,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('user', JSON.stringify(user));
     } else {
       localStorage.removeItem('user');
+      localStorage.removeItem('token');
     }
   }, [user]);
 
-  const login = async (username: string, password: string) => {
-    // For now, just use a simple check. In a real app, this would be an API call
-    if (username === 'admin' && password === 'admin') {
-      const user: User = {
-        id: 1,
-        name: 'Admin'
-      };
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await api.login(email, password);
+      const { user, token } = response.data;
+      
+      // Store the token
+      localStorage.setItem('token', token);
+      
+      // Set the user
       setUser(user);
-    } else {
-      throw new Error('Invalid credentials');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.response?.data?.message || 'Invalid credentials');
     }
   };
 
