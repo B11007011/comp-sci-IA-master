@@ -79,6 +79,14 @@ export const getStudent = (id: string) =>
 export const createStudent = (data: { name: string; email: string; class_id: number }) =>
   api.post('/students', data);
 
+export const createStudentsWithScores = (classId: number, students: Array<{
+  firstName: string;
+  lastName: string;
+  email: string;
+  points: number;
+}>) =>
+  api.post(`/classes/${classId}/students`, { students });
+
 export const updateStudent = (id: string, data: { name: string; email: string; class_id: number }) =>
   api.put(`/students/${id}`, data);
 

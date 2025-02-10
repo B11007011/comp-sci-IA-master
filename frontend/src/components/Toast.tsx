@@ -1,10 +1,10 @@
 import React from 'react';
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer as BaseToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 export const Toast: React.FC = () => {
   return (
-    <ToastContainer
+    <BaseToastContainer
       position="top-right"
       autoClose={3000}
       hideProgressBar={false}
@@ -15,6 +15,8 @@ export const Toast: React.FC = () => {
       draggable
       pauseOnHover
       theme="light"
+      progressClassName={() => "toastProgress"}
+      bodyClassName={() => "toastBody"}
     />
   );
 };

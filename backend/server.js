@@ -523,6 +523,67 @@ app.get('/students/:id/summary', authenticateToken, async (req, res) => {
     }
 });
 
+// Add students with scores to a class
+app.post('/classes/:id/students', async (req, res) => {
+  const classId = req.params.id;
+  const { students } = req.body;
+
+  if (!Array.isArray(students)) {
+    return res.status(400).json({ error: 'Invalid request format' });
+  }
+
+  const connection = await promisePool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+
+    // Verify class exists
+    const [classExists] = await connection.query(
+      'SELECT id FROM classes WHERE id = ?',
+      [classId]
+    );
+
+    if (!classExists || classExists.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    // Insert students and their initial points
+    for (const student of students) {
+      const { firstName, lastName, email, points } = student;
+
+      // Insert student
+      const [result] = await connection.query(
+        `INSERT INTO student (
+          first_name, last_name, email, class_id, points, 
+          attendance_rate, is_active
+        ) VALUES (?, ?, ?, ?, ?, 100, true)`,
+        [firstName, lastName, email, classId, points]
+      );
+
+      // If points are provided, add points history entry
+      if (points && points !== 0) {
+        await connection.query(
+          `INSERT INTO points_history (
+            student_id, points_change, previous_points, new_points,
+            category, reason, comment
+          ) VALUES (?, ?, 0, ?, 'Academic', 'Initial Points', 'Points assigned at student creation')`,
+          [result.insertId, points, points]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ message: 'Students added successfully' });
+  } catch (err) {
+    await connection.rollback();
+    console.error('Error adding students:', err);
+    res.status(500).json({ error: 'Failed to add students: ' + err.message });
+  } finally {
+    connection.release();
+  }
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

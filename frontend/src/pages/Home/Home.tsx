@@ -21,10 +21,11 @@ import {
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { getClasses, createClass, updateClass, deleteClass, getClassDetails } from '../../utils/api';
+import { getClasses, createClass, updateClass, deleteClass, getClassDetails, createStudentsWithScores } from '../../utils/api';
 import { Class, ClassDetails } from '../../types';
 import { toast } from 'react-toastify';
 import Header from '../../components/Header';
+import AddStudentDialog from '../../components/AddStudentDialog';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -37,6 +38,8 @@ const Home = () => {
   const [showError, setShowError] = useState(false);
   const [classDetails, setClassDetails] = useState<ClassDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [openStudentDialog, setOpenStudentDialog] = useState(false);
+  const [newClassId, setNewClassId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchClasses();
@@ -110,18 +113,42 @@ const Home = () => {
       if (selectedClass) {
         await updateClass(selectedClass.id.toString(), className.trim());
         toast.success('Class updated successfully');
+        fetchClasses();
+        handleCloseDialog();
       } else {
-        await createClass(className.trim());
+        const response = await createClass(className.trim());
         toast.success('Class created successfully');
+        setNewClassId(response.data.id);
+        handleCloseDialog();
+        setOpenStudentDialog(true);
       }
-      fetchClasses();
-      handleCloseDialog();
       setError('');
     } catch (err: any) {
       console.error('Error submitting class:', err);
       const errorMsg = err.response?.data?.error || 'Operation failed';
       setError(errorMsg);
       setShowError(true);
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleAddStudents = async (students: Array<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    points: number;
+  }>) => {
+    if (!newClassId) return;
+
+    try {
+      await createStudentsWithScores(newClassId, students);
+      toast.success('Students added successfully');
+      fetchClasses();
+      setOpenStudentDialog(false);
+      setNewClassId(null);
+    } catch (err: any) {
+      console.error('Error adding students:', err);
+      const errorMsg = err.response?.data?.error || 'Failed to add students';
       toast.error(errorMsg);
     }
   };
@@ -194,6 +221,20 @@ const Home = () => {
                 disabled={!selectedClass}
               >
                 Edit Class
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => {
+                  if (selectedClass) {
+                    setNewClassId(selectedClass.id);
+                    setOpenStudentDialog(true);
+                  }
+                }}
+                disabled={!selectedClass}
+                startIcon={<AddIcon />}
+              >
+                Add Students
               </Button>
             </Box>
 
@@ -293,6 +334,18 @@ const Home = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Add Students Dialog */}
+        <AddStudentDialog
+          open={openStudentDialog}
+          onClose={() => {
+            setOpenStudentDialog(false);
+            setNewClassId(null);
+            fetchClasses();
+          }}
+          onSubmit={handleAddStudents}
+          classId={newClassId || 0}
+        />
 
         {/* Error Snackbar */}
         <Snackbar open={showError} autoHideDuration={6000} onClose={handleCloseError}>
